@@ -19,6 +19,18 @@
   }
   function rootColor(type) { return E.ELEMENT_COLORS[type] || '#d9b35c'; }
 
+  // 单词/例句点读（英文 TTS）
+  function speak(text) {
+    if (!text) return;
+    try {
+      if (!('speechSynthesis' in window)) { toast('当前浏览器不支持朗读'); return; }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US'; u.rate = 0.95; u.pitch = 1;
+      window.speechSynthesis.speak(u);
+    } catch (e) { toast('朗读失败'); }
+  }
+
   /* ---------- 页面切换 ---------- */
   const PAGES = ['home', 'english', 'python', 'log', 'profile'];
   function go(page) {
@@ -281,25 +293,25 @@
     if (engTab === 'write') return renderWrite(body);
   }
 
-  // 聆听词韵：展示新词 + 复习任务，可打卡
+  // 聆听词韵：展示新词 + 今日复习配额（30），可打卡
   function renderListen(body) {
     const newKeys = Eng.getNewWords();
-    const due = Eng.getDueReviews();
+    const reviews = Eng.getTodayReviews();
     let html = `<div class="panel"><div class="panel-title"><span class="ico">👂</span>聆听词韵（背单词）</div>
-      <p class="muted">聆听词韵依艾宾浩斯遗忘曲线安排复习。完成打卡 +50 经验（按灵根倍率）。</p>`;
-    html += `<div class="muted" style="margin:8px 0">🆕 今日新词 ${newKeys.length} 词 ｜ 🔁 待复习 ${due.length} 词</div>`;
+      <p class="muted">每日新词 ${newKeys.length} 词，复习 ${reviews.length} 词（上限30）。完成打卡 +50 经验（按灵根倍率）。点 🔊 可听读音。</p>`;
+    html += `<div class="muted" style="margin:8px 0">🆕 今日新词 ${newKeys.length} 词 ｜ 🔁 今日复习 ${reviews.length} 词</div>`;
 
     // 新词卡
-    html += `<div class="log-date">今日新词</div>`;
+    html += `<div class="log-date">今日新词（${newKeys.length}）</div>`;
     if (newKeys.length === 0) html += `<p class="muted">今日新词已修习完毕，明日再启新篇。</p>`;
     newKeys.forEach(k => {
       const w = Eng.getWordInfo(k);
       html += wordCard(k, w, true);
     });
-    // 待复习
-    html += `<div class="log-date">待复习</div>`;
-    if (due.length === 0) html += `<p class="muted">暂无到期复习词，道友可闲庭信步。</p>`;
-    due.slice(0, 12).forEach(k => {
+    // 今日复习
+    html += `<div class="log-date">今日复习（${reviews.length}）</div>`;
+    if (reviews.length === 0) html += `<p class="muted">暂无待复习词，道友可闲庭信步。</p>`;
+    reviews.forEach(k => {
       const w = Eng.getWordInfo(k);
       html += wordCard(k, w, false);
     });
@@ -318,9 +330,13 @@
     const badge = isNew ? `<span class="badge new">新词</span>` :
       (w.stage === 'done' ? `<span class="badge done">已掌握</span>` : `<span class="badge review">复习</span>`);
     return `<div class="word-card">
-      <div class="w">${esc(w.w)} ${badge}</div>
+      <div class="w">${esc(w.w)} ${badge}
+        <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="XApp.speak('${esc(w.w)}')">🔊 单词</button>
+      </div>
       <div class="c">${esc(w.cn)}</div>
-      <div class="e">“${esc(w.ex)}”</div>
+      <div class="e">“${esc(w.ex)}”
+        <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="XApp.speak('${esc(w.ex).replace(/'/g, "\\'")}')">🔊 例句</button>
+      </div>
     </div>`;
   }
 
@@ -352,10 +368,10 @@
   // 凝神书字（拼写自测）
   function renderWrite(body) {
     const newKeys = Eng.getNewWords();
-    const due = Eng.getDueReviews();
-    const practiceKeys = (newKeys.concat(due)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 10);
+    const reviews = Eng.getTodayReviews();
+    const practiceKeys = (newKeys.concat(reviews)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 30);
     let html = `<div class="panel"><div class="panel-title"><span class="ico">✍️</span>凝神书字（拼写自测）</div>
-      <p class="muted">针对今日新词与待复习词自测拼写，系统据艾宾浩斯推进掌握度。完成 +100 经验（按灵根倍率）。</p>`;
+      <p class="muted">针对今日新词与今日复习词自测拼写（共 ${practiceKeys.length} 词），系统据艾宾浩斯推进掌握度。完成 +100 经验（按灵根倍率）。</p>`;
     if (practiceKeys.length === 0) {
       html += `<p class="muted">暂无待练词汇，道友可先至「聆听词韵」修习新词。</p>`;
     } else {
@@ -423,12 +439,7 @@
         </div>`;
       });
       body.innerHTML = html;
-      $$('#pyBody [data-learn]').forEach(b => b.onclick = () => {
-        const r = Py.learn(b.dataset.learn);
-        if (!r.ok) { toast(r.msg); return; }
-        toast(`修习·${r.node.title} +${r.gained} 经验`);
-        renderPython();
-      });
+      $$('#pyBody [data-learn]').forEach(b => b.onclick = () => showPyStudy(b.dataset.learn));
     } else {
       const list = Py.learnedList();
       let html = '';
@@ -463,6 +474,38 @@
       </div>`;
     mask.classList.add('show');
     $('#pyClose').onclick = () => { mask.classList.remove('show'); mask.innerHTML = ''; };
+  }
+
+  // 修习流程：先看视频 → 再学习 → 成功才得经验
+  function showPyStudy(id) {
+    const n = Py.node(id);
+    const mask = $('#modal');
+    mask.innerHTML = `
+      <div class="modal">
+        <h3>${esc(n.title)}</h3>
+        <div class="muted" style="margin-bottom:8px">难度：${esc(n.level)} ｜ 修习成功可得 100 经验（按灵根倍率）</div>
+        <div class="panel-title" style="font-size:14px">📹 第一步：观看配套讲法（视频）</div>
+        <a class="video-link" href="${esc(n.video)}" target="_blank" rel="noopener">▶ 点此前往观看教学视频（外链，需跳转）</a>
+        <div class="panel-title" style="font-size:14px;margin-top:12px">⚠ 第二步：研习术法避坑指南</div>
+        ${n.pitfalls.map(p => `<div class="pitfall">${esc(p)}</div>`).join('')}
+        <label class="info-row" style="margin-top:10px;align-items:center">
+          <span class="k">我已观看视频并研习完成</span>
+          <input type="checkbox" id="pyDone" style="width:20px;height:20px">
+        </label>
+        <button class="btn btn-primary" id="pyLearn" disabled>✦ 学习成功 · 领取 100 经验</button>
+        <button class="btn btn-ghost" id="pyCancel">暂缓修行</button>
+      </div>`;
+    mask.classList.add('show');
+    const chk = $('#pyDone'), learnBtn = $('#pyLearn');
+    chk.onchange = () => { learnBtn.disabled = !chk.checked; };
+    learnBtn.onclick = () => {
+      const r = Py.learn(id);
+      if (!r.ok) { toast(r.msg); return; }
+      toast(`修习·${r.node.title} +${r.gained} 经验`);
+      mask.classList.remove('show'); mask.innerHTML = '';
+      renderPython();
+    };
+    $('#pyCancel').onclick = () => { mask.classList.remove('show'); mask.innerHTML = ''; };
   }
 
   /* ============================================================
@@ -547,4 +590,5 @@
   document.addEventListener('DOMContentLoaded', boot);
   // 暴露给内联 onclick
   window.toast = toast;
+  window.XApp = { speak: speak };
 })();

@@ -45,22 +45,41 @@
     return batch;
   }
 
-  // 创建/获取今日学习批次（新词），返回新词 key 列表
+  // 创建/获取今日学习批次（新词 + 今日复习配额），返回新词 key 列表
   function ensureTodayBatch() {
     const m = mod();
     const t = E.todayStr();
-    if (m.lastWordBatch === t && m.todayNewWords && m.todayNewWords.length) {
+    if (m.lastWordBatch === t && m.todayNewWords) {
+      // 已生成今日批次，确保复习配额也已就绪
+      if (!m.todayReviewWords) m.todayReviewWords = pickDailyReviews();
+      save();
       return m.todayNewWords;
     }
     const keys = pickNewBatch();
     m.lastWordBatch = t;
     m.todayNewWords = keys;
+    m.todayReviewWords = pickDailyReviews();
     m.reviewedToday = false;
     save();
     return keys;
   }
 
-  // 待复习单词：nextReview <= 今日结束 且尚未掌握(level<最后阶段)
+  // 从到期复习词中取今日复习配额（最多 DAILY_REVIEW_LIMIT 个）
+  function pickDailyReviews() {
+    const m = mod();
+    const end = todayStart() + DAY;
+    const due = [];
+    for (const key in m.words) {
+      const rec = m.words[key];
+      if (rec.stage === 'done') continue;
+      if (rec.nextReview <= end) due.push(key);
+    }
+    // 按下次复习时间排序，早的优先
+    due.sort((a, b) => (m.words[a].nextReview || 0) - (m.words[b].nextReview || 0));
+    return due.slice(0, D.DAILY_REVIEW_LIMIT);
+  }
+
+  // 待复习单词（到期全部，用于展示）
   function getDueReviews() {
     const m = mod();
     const end = todayStart() + DAY;
@@ -71,6 +90,11 @@
       if (rec.nextReview <= end) due.push(key);
     }
     return due;
+  }
+
+  // 今日复习任务（配额内）
+  function getTodayReviews() {
+    return mod().todayReviewWords || [];
   }
 
   function getNewWords() {
@@ -88,11 +112,12 @@
   function checkListen() {
     const m = mod();
     const newKeys = ensureTodayBatch();
-    if (newKeys.length === 0 && getDueReviews().length === 0) {
+    const reviewKeys = getTodayReviews();
+    if (newKeys.length === 0 && reviewKeys.length === 0) {
       return { ok: false, msg: '今日新词已学完，暂无可复习词' };
     }
-    const r = E.addExp(50, true, '聆听词韵', `背诵单词 ${newKeys.length} 词 + 复习`);
-    return { ok: true, ...r, newCount: newKeys.length };
+    const r = E.addExp(50, true, '聆听词韵', `背诵新词 ${newKeys.length} 词 + 复习 ${reviewKeys.length} 词`);
+    return { ok: true, ...r, newCount: newKeys.length, reviewCount: reviewKeys.length };
   }
 
   // 品读文句打卡（例句）
@@ -189,7 +214,7 @@
   }
 
   const EnglishEngine = {
-    DAY, ensureTodayBatch, getDueReviews, getNewWords, getWordInfo,
+    DAY, ensureTodayBatch, getDueReviews, getTodayReviews, getNewWords, getWordInfo,
     checkListen, checkSentence, checkSpell, reviewDue, stats, pickNewBatch
   };
   global.XEnglishEngine = EnglishEngine;

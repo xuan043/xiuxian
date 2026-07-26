@@ -6,8 +6,10 @@
 (function (global) {
   'use strict';
 
-  // 每批学习新词数量
-  const NEW_WORDS_PER_BATCH = 8;
+  // 每日新词数量
+  const NEW_WORDS_PER_BATCH = 50;
+  // 每日复习单词数量上限
+  const DAILY_REVIEW_LIMIT = 30;
 
   /* 艾宾浩斯遗忘曲线复习周期（天）：当日、1、2、4、7、15、30 */
   const REVIEW_INTERVALS = [0, 1, 2, 4, 7, 15, 30];
@@ -380,7 +382,7 @@
   ];
 
   const EnglishData = {
-    NEW_WORDS_PER_BATCH, REVIEW_INTERVALS, WORD_BANK
+    NEW_WORDS_PER_BATCH, DAILY_REVIEW_LIMIT, REVIEW_INTERVALS, WORD_BANK
   };
   global.XEnglishData = EnglishData;
 })(window);
