@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#2a2218"/>
+      <stop offset="100%" stop-color="#15110c"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f3d489"/>
+      <stop offset="100%" stop-color="#d9b35c"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <circle cx="256" cy="210" r="120" fill="none" stroke="url(#gold)" stroke-width="6" opacity="0.8"/>
+  <circle cx="256" cy="210" r="86" fill="rgba(217,179,92,0.12)" stroke="url(#gold)" stroke-width="3"/>
+  <!-- 太极/道韵 -->
+  <path d="M256 124 a86 86 0 0 1 0 172 a43 43 0 0 1 0 -86 a43 43 0 0 0 0 -86 z" fill="url(#gold)" opacity="0.9"/>
+  <circle cx="256" cy="167" r="14" fill="#15110c"/>
+  <circle cx="256" cy="253" r="14" fill="url(#gold)"/>
+  <!-- 剑 -->
+  <g stroke="url(#gold)" stroke-width="8" stroke-linecap="round" fill="none">
+    <line x1="256" y1="300" x2="256" y2="430"/>
+    <line x1="226" y1="356" x2="286" y2="356"/>
+  </g>
+  <text x="256" y="480" text-anchor="middle" font-family="serif" font-size="40" fill="url(#gold)" letter-spacing="6">修行台</text>
+</svg>
