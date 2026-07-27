@@ -46,8 +46,36 @@
     window.scrollTo(0, 0);
   }
 
+  /* ---------- 云端同步状态 ---------- */
+  let _syncStatus = { state: 'idle', msg: '' };
+  function syncStatusText() {
+    if (_syncStatus.state === 'syncing') return '☁️ 云端同步中…';
+    if (_syncStatus.state === 'error') return '⚠️ 云端未连通（本机数据正常）';
+    return '☁️ 已开启云端同步';
+  }
+  function registerSync() {
+    if (window.XSync && window.XSync.setStatus) {
+      window.XSync.setStatus((state, msg) => {
+        _syncStatus = { state, msg: msg || '' };
+        // 状态变化后轻量刷新可显示的页面
+        const active = $('.page.active');
+        if (active && active.id === 'home') renderHome();
+        if (active && active.id === 'profile') renderProfile();
+      });
+    }
+  }
+  async function doPullAndMerge() {
+    if (!window.XSync || !window.XSync.pull) return;
+    const cloud = await window.XSync.pull();
+    const merged = E.mergeFromCloud(cloud);
+    if (merged) {
+      toast('已从云端同步最新进度');
+    }
+  }
+
   /* ---------- 开场：首次/老用户 ---------- */
   function boot() {
+    registerSync();
     renderStaticFrames();
     finishBoot();
   }
@@ -58,6 +86,8 @@
       showOnboarding();
     } else {
       ensureDaily();
+      // 进入前先从云端拉取并合并（异步，不阻塞页面）
+      doPullAndMerge().finally(() => { go('home'); });
       go('home');
     }
   }
@@ -192,6 +222,12 @@
         </button>
       </div>
 
+      <div class="panel sync-panel">
+        <div class="panel-title"><span class="ico">☁️</span>云端同步</div>
+        <p class="muted" id="syncMsg"${_syncStatus.state === 'error' ? ' style="color:var(--crimson)"' : ''}>${syncStatusText()}</p>
+        <button class="btn btn-ghost" id="syncBtn">🔄 立即同步到云端</button>
+      </div>
+
       <div class="panel">
         <div class="panel-title"><span class="ico">📜</span>修行板块</div>
         <div class="grid2">
@@ -219,6 +255,16 @@
       const r = E.claimDaily();
       if (r.ok) { toast(`领取俸禄 +${r.gained} 经验`); maybeBreak(realm, r.realmAfter); }
       else toast(r.msg);
+    });
+    $('#syncBtn') && ($('#syncBtn').onclick = () => {
+      if (window.XSync && window.XSync.isBusy && window.XSync.isBusy()) { toast('同步进行中，请稍候'); return; }
+      toast('开始同步…');
+      doPullAndMerge().finally(() => {
+        // 合并后再把本地最新状态推上去，保证双向一致
+        E.save();
+        setTimeout(() => { const m = $('#syncMsg'); if (m) m.textContent = syncStatusText(); }, 600);
+        renderHome();
+      });
     });
     $$('#home .entry-card[data-go]').forEach(c => c.onclick = () => go(c.dataset.go));
   }
@@ -685,10 +731,21 @@
       </div>
       <div class="panel">
         <div class="panel-title"><span class="ico">💾</span>数据说明</div>
-        <p class="muted">所有修行数据（灵根、职业、总经验、单词记忆、打卡日志）均永久保存于本机，经验数值永不清空。添加至桌面可获类 APP 体验。</p>
+        <p class="muted">所有修行数据（灵根、职业、总经验、单词记忆、打卡日志）均永久保存于本机，经验数值永不清空。开启云端同步后，电脑与手机会自动保持一致。</p>
+        <div class="sync-line" id="syncMsg2">${syncStatusText()}</div>
+        <button class="btn btn-ghost" id="syncBtn2">🔄 立即同步到云端</button>
         <button class="btn btn-ghost" id="resetBtn">↺ 重开修行（清空全部数据）</button>
       </div>
     `;
+    $('#syncBtn2') && ($('#syncBtn2').onclick = () => {
+      if (window.XSync && window.XSync.isBusy && window.XSync.isBusy()) { toast('同步进行中，请稍候'); return; }
+      toast('开始同步…');
+      doPullAndMerge().finally(() => {
+        E.save();
+        const m = $('#syncMsg2'); if (m) m.textContent = syncStatusText();
+        renderProfile();
+      });
+    });
     $('#resetBtn').onclick = () => {
       if (confirm('确定重开？将清空灵根、职业、经验与全部修行记录，此操作不可恢复。')) {
         E.resetAll();
