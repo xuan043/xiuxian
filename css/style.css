@@ -298,3 +298,8 @@ body::before {
 .kw:active { color: var(--gold-bright); border-color: var(--gold-bright); }
 
 .tt { color: var(--gold-bright); font-size: 16px; letter-spacing: 1px; }
+
+/* 云端同步 */
+.sync-panel { border: 1px solid rgba(111,208,224,0.25); }
+.sync-line { font-size: 13px; color: var(--jade); margin: 6px 0 10px; }
+.sync-line.err { color: var(--crimson); }
