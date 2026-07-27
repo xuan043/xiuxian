@@ -1,0 +1,20 @@
+{
+  "name": "修仙修行台 · 修为工作台",
+  "short_name": "修仙修行台",
+  "description": "修仙主题学习修为工作台：英语学习 + Python 修习，灵根倍率、境界突破、修行日志",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15110c",
+  "theme_color": "#15110c",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"]
+}
