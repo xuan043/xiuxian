@@ -107,6 +107,33 @@
     } catch (e) {
       console.error('保存失败', e);
     }
+    // 异步推送到云端（失败静默，不阻塞）
+    try {
+      if (global.XSync && typeof global.XSync.push === 'function') {
+        global.XSync.push(_state);
+      }
+    } catch (e) { /* 忽略云端错误 */ }
+  }
+
+  /* ---------- 云端合并 ----------
+   * 以「累计总经验」作为权威判断：云端经验更高 -> 采用云端；
+   * 本地更高 -> 保留本地（随后 save() 会自动 push 覆盖云端）。
+   * 仅在经验相等时保留本地，避免无谓覆盖。
+   */
+  function mergeFromCloud(cloudState) {
+    if (!cloudState) return false;
+    const local = load();
+    const cloudExp = (cloudState.totalExp) || 0;
+    const localExp = (local.totalExp) || 0;
+    if (cloudExp <= localExp) return false; // 本地已是最新
+    // 采用云端完整状态
+    _state = Object.assign(defaultState(), cloudState);
+    _state.modules = Object.assign(defaultState().modules, _state.modules || {});
+    _state.modules.english = Object.assign(defaultState().modules.english, _state.modules.english || {});
+    _state.modules.python = Object.assign(defaultState().modules.python, _state.modules.python || {});
+    // 写回本地（不再触发 push，避免回环）
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(_state)); } catch (e) {}
+    return true;
   }
 
   function getState() { return load(); }
@@ -320,7 +347,7 @@
   /* ---------- 导出 ---------- */
   const Engine = {
     STORAGE_KEY, ELEMENTS, ELEMENT_COLORS, ROOT_MULTIPLIER, PROFESSIONS, REALMS, MULTI_PROF_RATIO,
-    load, save, getState, replaceState, resetAll,
+    load, save, getState, replaceState, resetAll, mergeFromCloud,
     todayStr, nowTime,
     drawSpiritRoot, buildRootLabel,
     setProfession, profThresholdRatio,
